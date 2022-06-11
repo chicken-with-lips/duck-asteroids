@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net6.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <!--<EnableDynamicLoading>true</EnableDynamicLoading>-->
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <OutputPath>/home/jolly_samurai/Projects/chicken-with-lips/duck/Build/Debug/net6.0/Game</OutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\..\duck\Source\Engine\Content\Content.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\Core\Core.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\CoreInterfaces\CoreInterfaces.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\Ecs\Ecs.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\GameFramework\GameFramework.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\Graphics\Graphics.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\Physics\Physics.csproj" />
+      <ProjectReference Include="..\..\duck\Source\Engine\Scene\Scene.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="Silk.NET.Maths" Version="2.15.0" />
+    </ItemGroup>
+
+</Project>
