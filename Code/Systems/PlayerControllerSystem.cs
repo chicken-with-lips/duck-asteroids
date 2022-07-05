@@ -78,7 +78,7 @@ public class PlayerControllerSystem : RunSystemBase<PlayerControllerComponent, T
         meshComponent.Mesh = playerController.ProjectileAsset;
 
         ref var bulletTransform = ref bullet.Get<TransformComponent>();
-        bulletTransform.Position = parentTransform.Position + (parentTransform.Forward * 300f);
+        bulletTransform.Position = parentTransform.Position + (parentTransform.Forward * 500f);
         bulletTransform.Rotation = Quaternion<float>.Identity;
     }
 }

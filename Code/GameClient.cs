@@ -18,6 +18,7 @@ using Game.Components;
 using Game.Components.Tags;
 using Game.Observers;
 using Game.Systems;
+using Silk.NET.Core;
 using Silk.NET.Maths;
 
 namespace Game
@@ -30,7 +31,7 @@ namespace Game
         private StaticMesh? _planetMesh;
         private StaticMesh? _asteroidMesh;
         private StaticMesh? _bulletMesh;
-
+        
         #endregion
 
         #region Methods
@@ -56,7 +57,8 @@ namespace Game
                 .Add(new PawnCollisionObserver(composition.World, eventBus))
                 .Add(new CameraControllerSystem(composition.World))
                 .Add(new PlayerControllerSystem(composition.World, Application.GetModule<IInputModule>()))
-                .Add(new DestroyAfterTimeSystem(composition.World));
+                .Add(new DestroyAfterTimeSystem(composition.World))
+                .Add(new AsteroidSpawnerSystem(composition.World, Application.GetModule<IPhysicsModule>(), _asteroidMesh));
 
             var physWorld = Application.GetModule<IPhysicsModule>().GetOrCreatePhysicsWorld(composition.World);
             physWorld.Gravity = Vector3D<float>.Zero;
@@ -136,12 +138,13 @@ namespace Game
                 .Build(input);
         }
 
+        
+        
         private void InitializeRound(IWorld world)
         {
             CreateCamera(world);
             CreatePlayer(world);
             CreatePlanet(world);
-            CreateAsteroid(world);
         }
 
         private void CreateCamera(IWorld world)
@@ -149,7 +152,7 @@ namespace Game
             var cameraEntity = world.CreateEntity();
 
             ref var transformComponent = ref cameraEntity.Get<TransformComponent>();
-            transformComponent.Position = new Vector3D<float>(0, 8000, 0);
+            transformComponent.Position = new Vector3D<float>(0, 10000, 0);
             transformComponent.Rotation = Quaternion<float>.CreateFromYawPitchRoll(
                 MathHelper.ToRadians(0),
                 MathHelper.ToRadians(90),
@@ -206,29 +209,6 @@ namespace Game
             ref var transform = ref playerEntity.Get<TransformComponent>();
             transform.Position = new Vector3D<float>(0, 0, -2500f);
             transform.Rotation = Quaternion<float>.Identity;
-        }
-
-        private void CreateAsteroid(IWorld world)
-        {
-            var entity = world.CreateEntity();
-            entity.Get<PawnTag>();
-            entity.Get<EnemyTag>();
-
-            ref var rigidBody = ref entity.Get<RigidBodyComponent>();
-            rigidBody.Type = RigidBodyComponent.BodyType.Dynamic;
-            rigidBody.Mass = 2000;
-            rigidBody.IsGravityEnabled = false;
-
-            ref var boundingSphereComponent = ref entity.Get<BoundingSphereComponent>();
-            boundingSphereComponent.Radius = 375f;
-
-            ref var meshComponent = ref entity.Get<MeshComponent>();
-            meshComponent.Mesh = _asteroidMesh.MakeReference();
-
-            ref var transform = ref entity.Get<TransformComponent>();
-            transform.Position = new Vector3D<float>(2000f, 0, -2500f);
-            transform.Rotation = Quaternion<float>.Identity;
-            transform.Scale = new Vector3D<float>(2f, 2f, 2f);
         }
 
         #endregion
