@@ -22,7 +22,7 @@ public class MainMenu : IGameScene
     {
         var contentModule = _app.GetModule<IContentModule>();
 
-        var contextAsset = contentModule.Database.Register(new Context(new AssetImportData(new Uri("memory://generated"))));
+        var contextAsset = contentModule.Database.Register(new Context(new AssetImportData(new Uri("memory://game/default-ui.context"))));
         var uiAsset = contentModule.Import<UserInterface>("UI/demo.rml");
         var world = scene.World;
 
@@ -31,14 +31,14 @@ public class MainMenu : IGameScene
         ref var contextComponent = ref mainMenu.Get<ContextComponent>();
         contextComponent.Name = "MainMenu";
         contextComponent.ShouldReceiveInput = true;
-        
+
         ref var uiComponent = ref mainMenu.Get<UserInterfaceComponent>();
         uiComponent.ContextName = "MainMenu";
-        uiComponent.Interface = uiAsset.MakeReference();
+        uiComponent.Interface = uiAsset?.MakeUniqueReference();
+        uiComponent.Script = new UI.MainMenu(_app);
     }
 
     public void Unload()
     {
-        throw new System.NotImplementedException();
     }
 }

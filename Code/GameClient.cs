@@ -47,7 +47,9 @@ namespace Game
 
         protected override void InitializeClient(IGameClientInitializationContext context)
         {
-            var scene = Application.GetModule<ISceneModule>().Create(GameConstants.LevelMainMenu);
+            var scene = Application.GetModule<ISceneModule>().Create(GameConstants.LevelRound);
+            scene.IsActive = true;
+
             var composition = scene.SystemComposition;
 
             if (Application is ApplicationBase appBase) {
@@ -78,9 +80,6 @@ namespace Game
                 .AddBinding(InputName.D, -1.0f)
                 .Build(input);
         }
-
-
-       
 
         #endregion
     }

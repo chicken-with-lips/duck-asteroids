@@ -20,7 +20,7 @@ public class AsteroidSpawnerSystem : SystemBase
     private const float SpawnForceMultiplier = 4f;
     private const float SpawnRateSeconds = 2.5f;
     private const float SpawnRateJitterSeconds = 0.5f;
-    
+
     private readonly IWorld _world;
     private readonly IAsset<StaticMesh> _asteroidMesh;
     private readonly IPhysicsWorld _physicsWorld;
@@ -98,7 +98,7 @@ public class AsteroidSpawnerSystem : SystemBase
         boundingSphereComponent.Radius = 375f;
 
         ref var meshComponent = ref entity.Get<MeshComponent>();
-        meshComponent.Mesh = _asteroidMesh.MakeReference();
+        meshComponent.Mesh = _asteroidMesh.MakeSharedReference();
 
         ref var transform = ref entity.Get<TransformComponent>();
         transform.Position = position;

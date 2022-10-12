@@ -7,7 +7,7 @@ namespace Game.Components;
 [AutoSerializable]
 public partial struct PlayerControllerComponent
 {
-    public AssetReference<StaticMesh> ProjectileAsset = default;
+    public IAssetReference<StaticMesh>? ProjectileAsset = default;
 
     public float FireRatePerSecond = 0.5f;
     public float LastFireTime = 0f;

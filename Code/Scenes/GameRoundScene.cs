@@ -49,6 +49,7 @@ public class GameRoundScene : IGameScene
     public void Load(IScene scene)
     {
         LoadContent();
+        InitializeRound(scene.World);
 
         var composition = scene.SystemComposition;
         composition
@@ -74,9 +75,9 @@ public class GameRoundScene : IGameScene
         );
         var shaderProgram = _contentModule.Database.Register(
             new ShaderProgram(
-                new AssetImportData(new Uri("memory://generated")),
-                vertShader.MakeReference(),
-                fragShader.MakeReference()
+                new AssetImportData(new Uri("memory://game.shader")),
+                vertShader.MakeSharedReference(),
+                fragShader.MakeSharedReference()
             )
         );
 
@@ -104,10 +105,10 @@ public class GameRoundScene : IGameScene
 
         _spaceshipMesh = _contentModule.Database.Register(
             new StaticMesh(
-                new AssetImportData(new Uri("memory://generated")),
+                new AssetImportData(new Uri("memory://game/spaceship.mesh")),
                 new BufferObject<TexturedVertex>(vertices),
                 new BufferObject<uint>(indices),
-                shaderProgram.MakeReference()
+                shaderProgram.MakeSharedReference()
             )
         );
 
@@ -125,7 +126,7 @@ public class GameRoundScene : IGameScene
     {
         CreateCamera(world);
         CreatePlayer(world);
-        CreatePlanet(world);
+        // CreatePlanet(world);
     }
 
     private void CreateCamera(IWorld world)
@@ -159,7 +160,7 @@ public class GameRoundScene : IGameScene
         boundingSphereComponent.Radius = 23000f;
 
         ref var meshComponent = ref entity.Get<MeshComponent>();
-        meshComponent.Mesh = _planetMesh.MakeReference();
+        meshComponent.Mesh = _planetMesh?.MakeSharedReference();
 
         ref var transform = ref entity.Get<TransformComponent>();
         transform.Rotation = Quaternion<float>.Identity;
@@ -176,7 +177,7 @@ public class GameRoundScene : IGameScene
         playerEntity.Get<PlayerTag>();
 
         ref var controllerComponent = ref playerEntity.Get<PlayerControllerComponent>();
-        controllerComponent.ProjectileAsset = _bulletMesh.MakeReference();
+        controllerComponent.ProjectileAsset = _bulletMesh?.MakeSharedReference();
 
         ref var rigidBody = ref playerEntity.Get<RigidBodyComponent>();
         rigidBody.Mass = 100;
@@ -189,7 +190,7 @@ public class GameRoundScene : IGameScene
         boundingBoxComponent.Box = new Box3D<float>(-150f, -150f, -175f, 150f, 150f, 175f);
 
         ref var playerMeshComponent = ref playerEntity.Get<MeshComponent>();
-        playerMeshComponent.Mesh = _spaceshipMesh.MakeReference();
+        playerMeshComponent.Mesh = _spaceshipMesh?.MakeSharedReference();
 
         ref var transform = ref playerEntity.Get<TransformComponent>();
         transform.Position = new Vector3D<float>(0, 0, -2500f);

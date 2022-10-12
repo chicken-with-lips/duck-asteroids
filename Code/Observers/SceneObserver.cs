@@ -1,4 +1,5 @@
 using Duck;
+using Duck.Scene;
 using Duck.Scene.Events;
 using Duck.ServiceBus;
 using Game.Scenes;
@@ -13,10 +14,10 @@ public class SceneObserver : IObserver
     public SceneObserver(IApplication app)
     {
         _app = app;
-        _app.GetModule<IEventBus>().AddListener<SceneWasLoaded>(OnSceneLoaded);
+        _app.GetModule<IEventBus>().AddListener<SceneWasMadeActive>(OnActiveSceneChanged);
     }
 
-    private void OnSceneLoaded(SceneWasLoaded ev)
+    private void OnActiveSceneChanged(SceneWasMadeActive ev)
     {
         IGameScene? newScene = null;
 
@@ -34,7 +35,7 @@ public class SceneObserver : IObserver
             newScene.Load(ev.Scene);
 
             if (null != _currentScene) {
-                _currentScene.Unload();
+                // _app.GetModule<ISceneModule>().Unload(_currentScene.Scene);
             }
 
             _currentScene = newScene;
