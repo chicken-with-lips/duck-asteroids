@@ -126,7 +126,7 @@ public class GameRoundScene : IGameScene
     {
         CreateCamera(world);
         CreatePlayer(world);
-        // CreatePlanet(world);
+        CreatePlanet(world);
     }
 
     private void CreateCamera(IWorld world)
@@ -134,8 +134,7 @@ public class GameRoundScene : IGameScene
         var cameraEntity = world.CreateEntity();
 
         ref var transformComponent = ref cameraEntity.Get<TransformComponent>();
-        // transformComponent.Position = new Vector3D<float>(0, 10000, 0);
-        transformComponent.Position = new Vector3D<float>(0, 0, 0);
+        transformComponent.Position = new Vector3D<float>(0, 10000, 0);
         transformComponent.Rotation = Quaternion<float>.CreateFromYawPitchRoll(
             MathHelper.ToRadians(0),
             MathHelper.ToRadians(90),

@@ -47,7 +47,7 @@ namespace Game
 
         protected override void InitializeClient(IGameClientInitializationContext context)
         {
-            var scene = Application.GetModule<ISceneModule>().Create(GameConstants.LevelRound);
+            var scene = Application.GetModule<ISceneModule>().Create(GameConstants.LevelMainMenu);
             scene.IsActive = true;
 
             var composition = scene.SystemComposition;
