@@ -1,9 +1,10 @@
+using System;
 using Duck.Scene;
+using Duck.Scene.Scripting;
 
 namespace Game.Scenes;
 
-public interface IGameScene
+public interface IGameScene : ISceneScript, IDisposable
 {
-    public void Load(IScene scene);
-    public void Unload();
+    public IScene Scene { get; }
 }

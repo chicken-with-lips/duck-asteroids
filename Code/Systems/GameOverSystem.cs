@@ -1,6 +1,7 @@
 using System;
 using Duck.Ecs;
 using Duck.Ecs.Systems;
+using Duck.Scene;
 using Game.Components.Tags;
 
 namespace Game.Systems;
@@ -8,11 +9,13 @@ namespace Game.Systems;
 public class GameOverSystem : SystemBase
 {
     private readonly IWorld _world;
+    private readonly ISceneModule _sceneModule;
     private readonly IFilter<PlanetTag> _filter;
 
-    public GameOverSystem(IWorld world)
+    public GameOverSystem(IWorld world, ISceneModule sceneModule)
     {
         _world = world;
+        _sceneModule = sceneModule;
 
         _filter = Filter<PlanetTag>(world)
             .Build();
@@ -23,7 +26,7 @@ public class GameOverSystem : SystemBase
         if (_filter.EntityRemovedList.Length == 0) {
             return;
         }
-        
-        Console.WriteLine("GAME OVER");
+
+        var sceneModule = _sceneModule.Create(GameConstants.LevelMainMenu);
     }
 }

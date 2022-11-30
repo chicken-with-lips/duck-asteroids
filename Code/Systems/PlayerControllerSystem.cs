@@ -32,7 +32,7 @@ public class PlayerControllerSystem : RunSystemBase<PlayerControllerComponent, T
 
     public override void RunEntity(int entityId, ref PlayerControllerComponent playerController, ref TransformComponent transform, ref RigidBodyComponent rigidBody)
     {
-        var moveForwardValue = Vector3D.Normalize(transform.Forward) * 1000f * _moveForward.Value;
+        var moveForwardValue = Vector3D.Normalize(transform.Forward) * 3000f * _moveForward.Value;
         var moveRightValue = Vector3D.Normalize(transform.Up) * 10f * _moveRight.Value;
 
         if (moveForwardValue.Length > 0) {

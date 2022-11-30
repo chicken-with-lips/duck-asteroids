@@ -13,48 +13,72 @@ using Duck.Physics;
 using Duck.Physics.Components;
 using Duck.Scene;
 using Duck.Scene.Components;
+using Duck.Scene.Scripting;
 using Duck.ServiceBus;
+using Duck.Ui.Assets;
+using Duck.Ui.Components;
 using Game.Components;
 using Game.Components.Tags;
 using Game.Observers;
 using Game.Systems;
+using Game.UI;
 using Silk.NET.Maths;
 
 namespace Game.Scenes;
 
-public class GameRoundScene : IGameScene
+public class GameRoundScene : IGameScene, ISceneMadeActive
 {
+    #region Properties
+
+    public IScene Scene => _scene;
+
+    #endregion
+
     #region Members
 
     private readonly IContentModule _contentModule;
     private readonly IPhysicsModule _physicsModule;
     private readonly IEventBus _eventBus;
     private readonly IInputModule _inputModule;
+    private readonly IScene _scene;
+    private readonly ISceneModule _sceneModule;
 
     private IAsset<StaticMesh>? _planetMesh;
     private IAsset<StaticMesh>? _bulletMesh;
     private IAsset<StaticMesh>? _asteroidMesh;
     private IAsset<StaticMesh>? _spaceshipMesh;
+    private IAsset<UserInterface>? _hudAsset;
 
     #endregion
 
-    public GameRoundScene(IApplication app)
+    public GameRoundScene(IScene scene, IApplication app)
     {
+        _scene = scene;
+
         _contentModule = app.GetModule<IContentModule>();
         _physicsModule = app.GetModule<IPhysicsModule>();
         _inputModule = app.GetModule<IInputModule>();
         _eventBus = app.GetModule<IEventBus>();
+        _sceneModule = app.GetModule<ISceneModule>();
     }
 
-    public void Load(IScene scene)
+    ~GameRoundScene()
     {
-        LoadContent();
-        InitializeRound(scene.World);
+        Dispose(false);
+    }
 
-        var composition = scene.SystemComposition;
+    public void OnActivated()
+    {
+        ThrowIfDisposed();
+
+        LoadContent();
+        CreateHud(_scene.World);
+        InitializeRound(_scene.World);
+
+        var composition = _scene.SystemComposition;
         composition
             .Add(new PawnCollisionObserver(composition.World, _eventBus))
-            .Add(new GameOverSystem(composition.World))
+            .Add(new GameOverSystem(composition.World, _sceneModule))
             .Add(new CameraControllerSystem(composition.World))
             .Add(new PlayerControllerSystem(composition.World, _inputModule))
             .Add(new DestroyAfterTimeSystem(composition.World))
@@ -115,11 +139,7 @@ public class GameRoundScene : IGameScene
         _planetMesh = _contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/SM_Env_Planet_01.fbx");
         _asteroidMesh = _contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/SM_Env_Astroid_02.fbx");
         _bulletMesh = _contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/FX_Meshes/SM_SphereGeo.fbx");
-    }
-
-    public void Unload()
-    {
-        throw new System.NotImplementedException();
+        _hudAsset = _contentModule.Import<UserInterface>("UI/Hud.rml");
     }
 
     private void InitializeRound(IWorld world)
@@ -127,6 +147,20 @@ public class GameRoundScene : IGameScene
         CreateCamera(world);
         CreatePlayer(world);
         CreatePlanet(world);
+    }
+
+    private void CreateHud(IWorld world)
+    {
+        var mainMenu = world.CreateEntity();
+
+        ref var contextComponent = ref mainMenu.Get<ContextComponent>();
+        contextComponent.Name = "Hud";
+        contextComponent.ShouldReceiveInput = true;
+
+        ref var uiComponent = ref mainMenu.Get<UserInterfaceComponent>();
+        uiComponent.ContextName = "Hud";
+        uiComponent.Interface = _hudAsset?.MakeUniqueReference();
+        uiComponent.Script = new Hud(_scene);
     }
 
     private void CreateCamera(IWorld world)
@@ -166,7 +200,7 @@ public class GameRoundScene : IGameScene
         transform.Scale = new Vector3D<float>(0.05f, 0.05f, 0.05f);
 
         ref var health = ref entity.Get<HealthComponent>();
-        health.Value = 100;
+        health.Value = 150;
     }
 
     private void CreatePlayer(IWorld world)
@@ -195,4 +229,27 @@ public class GameRoundScene : IGameScene
         transform.Position = new Vector3D<float>(0, 0, -2500f);
         transform.Rotation = Quaternion<float>.Identity;
     }
+
+    #region IDisposable
+
+    public bool IsDisposed { get; private set; }
+
+    public void Dispose()
+    {
+        Dispose(true);
+    }
+
+    private void Dispose(bool disposing)
+    {
+        IsDisposed = true;
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (IsDisposed) {
+            throw new ObjectDisposedException("World");
+        }
+    }
+
+    #endregion
 }

@@ -1,4 +1,6 @@
+using System;
 using Duck;
+using Duck.GameFramework;
 using Duck.Scene;
 using Duck.Scene.Events;
 using Duck.ServiceBus;
@@ -9,36 +11,50 @@ namespace Game.Observers;
 public class SceneObserver : IObserver
 {
     private readonly IApplication _app;
+    private readonly ISceneModule _sceneModule;
+
     private IGameScene? _currentScene;
 
     public SceneObserver(IApplication app)
     {
         _app = app;
-        _app.GetModule<IEventBus>().AddListener<SceneWasMadeActive>(OnActiveSceneChanged);
+        _sceneModule = app.GetModule<ISceneModule>();
+        
+        var eventBus = _app.GetModule<IEventBus>();
+        eventBus.AddListener<SceneWasCreated>(OnSceneCreated);
+        eventBus.AddListener<SceneWasMadeActive>(OnActiveSceneChanged);
+        eventBus.AddListener<SceneWasUnloaded>(OnSceneUnloaded);
+    }
+
+    private void OnSceneCreated(SceneWasCreated ev)
+    {
+        switch (ev.Scene.Name) {
+            case GameConstants.LevelMainMenu:
+                ev.Scene.Script = new MainMenu(ev.Scene, _app);
+                break;
+
+            case GameConstants.LevelRound:
+                ev.Scene.Script = new GameRoundScene(ev.Scene, _app);
+                break;
+        }
+        
+        if (_app is ApplicationBase appBase) {
+            appBase.PopulateSystemCompositionWithDefaults(ev.Scene, ev.Scene.SystemComposition);
+        }
+
+        ev.Scene.IsActive = true;
     }
 
     private void OnActiveSceneChanged(SceneWasMadeActive ev)
     {
-        IGameScene? newScene = null;
-
-        switch (ev.Scene.Name) {
-            case GameConstants.LevelMainMenu:
-                newScene = new MainMenu(_app);
-                break;
-
-            case GameConstants.LevelRound:
-                newScene = new GameRoundScene(_app);
-                break;
+        if (null != _currentScene) {
+            _sceneModule.Unload(_currentScene.Scene);
         }
 
-        if (null != newScene) {
-            newScene.Load(ev.Scene);
+        _currentScene = ev.Scene.Script as IGameScene;
+    }
 
-            if (null != _currentScene) {
-                // _app.GetModule<ISceneModule>().Unload(_currentScene.Scene);
-            }
-
-            _currentScene = newScene;
-        }
+    private void OnSceneUnloaded(SceneWasUnloaded ev)
+    {
     }
 }

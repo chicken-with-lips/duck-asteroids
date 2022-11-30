@@ -1,18 +1,22 @@
 using System;
 using Duck;
+using Duck.Ecs;
 using Duck.Scene;
 using Duck.Ui;
 using Duck.Ui.RmlUi;
 using Duck.Ui.Scripting;
+using Game.Components.Tags;
 
 namespace Game.UI;
 
 public class MainMenu : IUserInterfaceLoaded
 {
+    private readonly ISceneModule _sceneModule;
     private readonly IApplication _app;
 
-    public MainMenu(IApplication app)
+    public MainMenu(ISceneModule sceneModule, IApplication app)
     {
+        _sceneModule = sceneModule;
         _app = app;
     }
     
@@ -28,7 +32,7 @@ public class MainMenu : IUserInterfaceLoaded
 
         if (play != null) {
             ui.AddEventListener(play, "click", @event => {
-                _app.GetModule<ISceneModule>().Create(GameConstants.LevelRound);
+                _sceneModule.Create(GameConstants.LevelRound);
             });
         }
 

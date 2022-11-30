@@ -17,7 +17,7 @@ public class AsteroidSpawnerSystem : SystemBase
 {
     private const float SpawnMinRadius = 9000f;
     private const float SpawnMaxRadius = 10000f;
-    private const float SpawnForceMultiplier = 4f;
+    private const float SpawnForceMultiplier = 14f;
     private const float SpawnRateSeconds = 2.5f;
     private const float SpawnRateJitterSeconds = 0.5f;
 
