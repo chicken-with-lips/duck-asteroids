@@ -1,39 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using Duck.Content;
-using Duck.Ecs;
+﻿using Duck.Content;
+using Duck.Ecs.Events;
 using Duck.GameFramework;
 using Duck.GameFramework.GameClient;
 using Duck.GameHost;
-using Duck.Graphics.Components;
-using Duck.Graphics.Device;
-using Duck.Graphics.Mesh;
-using Duck.Graphics.Shaders;
 using Duck.Input;
-using Duck.Math;
 using Duck.Physics;
-using Duck.Physics.Components;
 using Duck.Scene;
-using Duck.Scene.Components;
 using Duck.ServiceBus;
-using Game.Components;
-using Game.Components.Tags;
-using Game.Observers;
 using Game.Systems;
-using Silk.NET.Core;
-using Silk.NET.Maths;
+using Game.Systems.Scenes;
 
 namespace Game
 {
     public class GameClient : GameClientBase
     {
-        #region Members
-
-        private readonly List<IObserver> _observers = new();
-
-        #endregion
-
         #region Methods
 
         public override void Tick()
@@ -47,11 +27,30 @@ namespace Game
 
         protected override void InitializeClient(IGameClientInitializationContext context)
         {
-            Application.GetModule<ISceneModule>().Create(GameConstants.LevelMainMenu);
-
             InitializeInput(GetModule<IInputModule>());
 
-            _observers.Add(new SceneObserver(Application));
+            context.Application.GetModule<IEventBus>().AddListener<WorldWasCreated>(ev => {
+                var world = ev.World;
+                var systemComposition = world.SystemComposition;
+
+                if (context.Application is ApplicationBase appBase) {
+                    appBase.PopulateSystemCompositionWithDefaults(systemComposition);
+                }
+
+                systemComposition
+                    .Add(new CreateMainMenuSceneSystem(world, context.Application, context.Application.GetModule<ISceneModule>(), context.Application.GetModule<IContentModule>()))
+                    .Add(new CreateRoundSceneSystem(world, context.Application, context.Application.GetModule<ISceneModule>(), context.Application.GetModule<IContentModule>()))
+                    .Add(new UnloadSceneSystem(world, context.Application.GetModule<ISceneModule>()))
+                    .Add(new GameOverSystem(systemComposition.World, context.Application.GetModule<ISceneModule>()))
+                    .Add(new CameraControllerSystem(systemComposition.World))
+                    .Add(new PlayerControllerSystem(systemComposition.World, context.Application.GetModule<IInputModule>()))
+                    .Add(new DestroyAfterTimeSystem(systemComposition.World))
+                    .Add(new DestroyAfterHealthEmptySystem(systemComposition.World))
+                    .Add(new AsteroidSpawnerSystem(systemComposition.World, context.Application.GetModule<IPhysicsModule>(), context.Application.GetModule<IContentModule>()))
+                    .Add(new AsteroidCollisionSystem(systemComposition.World));
+            });
+
+            Application.GetModule<ISceneModule>().Create(GameConstants.LevelRound);
         }
 
         private void InitializeInput(IInputModule input)
@@ -59,6 +58,7 @@ namespace Game
             InputActionBuilder.Create()
                 .WithName("Fire")
                 .AddBinding(InputName.Space)
+                .AddBinding(InputName.MouseButtonLeft)
                 .Build(input);
 
             InputAxisBuilder.Create()
@@ -68,9 +68,19 @@ namespace Game
                 .Build(input);
 
             InputAxisBuilder.Create()
-                .WithName("TurnRight")
+                .WithName("StrafeRight")
                 .AddBinding(InputName.A, 1.0f)
                 .AddBinding(InputName.D, -1.0f)
+                .Build(input);
+
+            InputAxisBuilder.Create()
+                .WithName("MouseX")
+                .AddBinding(InputName.MouseAbsoluteX, 1.0f)
+                .Build(input);
+
+            InputAxisBuilder.Create()
+                .WithName("MouseY")
+                .AddBinding(InputName.MouseAbsoluteY, 1.0f)
                 .Build(input);
         }
 

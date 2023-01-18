@@ -1,4 +1,5 @@
 using System;
+using System.Numerics;
 using Duck;
 using Duck.Content;
 using Duck.Ecs;
@@ -17,21 +18,21 @@ public class AsteroidSpawnerSystem : SystemBase
 {
     private const float SpawnMinRadius = 9000f;
     private const float SpawnMaxRadius = 10000f;
-    private const float SpawnForceMultiplier = 14f;
+    private const float SpawnForceMultiplier = 1200;
     private const float SpawnRateSeconds = 2.5f;
     private const float SpawnRateJitterSeconds = 0.5f;
 
     private readonly IWorld _world;
-    private readonly IAsset<StaticMesh> _asteroidMesh;
+    private readonly IAsset<StaticMesh>? _asteroidMesh;
     private readonly IPhysicsWorld _physicsWorld;
 
     private float _nextSpawnTime = 0;
 
-    public AsteroidSpawnerSystem(IWorld world, IPhysicsModule physicsModule, IAsset<StaticMesh> asteroidMesh)
+    public AsteroidSpawnerSystem(IWorld world, IPhysicsModule physicsModule, IContentModule contentModule)
     {
         _world = world;
-        _asteroidMesh = asteroidMesh;
         _physicsWorld = physicsModule.GetOrCreatePhysicsWorld(world);
+        _asteroidMesh = contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/SM_Env_Astroid_02.fbx");
     }
 
     public override void Run()
@@ -55,7 +56,7 @@ public class AsteroidSpawnerSystem : SystemBase
         var placed = false;
 
         ref var transformComponent = ref asteroid.Get<TransformComponent>();
-
+        
         for (var placementIteration = 0; placementIteration < 100; placementIteration++) {
             var radius = minRadius + ((maxRadius - minRadius) * Random.Shared.NextSingle());
             var theta = Random.Shared.NextSingle() * 2f * MathF.PI;
@@ -76,8 +77,8 @@ public class AsteroidSpawnerSystem : SystemBase
             _world.DeleteEntity(asteroid);
         } else {
             asteroid.Get<RigidBodyComponent>().AddForce(
-                (planets[0].Get<TransformComponent>().Position - asteroid.Get<TransformComponent>().Position) * SpawnForceMultiplier,
-                RigidBodyComponent.ForceMode.Force
+                Vector3D.Normalize(planets[0].Get<TransformComponent>().Position - asteroid.Get<TransformComponent>().Position) * SpawnForceMultiplier,
+                RigidBodyComponent.ForceMode.VelocityChange
             );
         }
     }
@@ -98,7 +99,7 @@ public class AsteroidSpawnerSystem : SystemBase
         boundingSphereComponent.Radius = 375f;
 
         ref var meshComponent = ref entity.Get<MeshComponent>();
-        meshComponent.Mesh = _asteroidMesh.MakeSharedReference();
+        meshComponent.Mesh = _asteroidMesh?.MakeSharedReference();
 
         ref var transform = ref entity.Get<TransformComponent>();
         transform.Position = position;

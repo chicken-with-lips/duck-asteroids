@@ -8,6 +8,7 @@ namespace Game.Components;
 public partial struct PlayerControllerComponent
 {
     public IAssetReference<StaticMesh>? ProjectileAsset = default;
+    public int CameraEntityId = -1;
 
     public float FireRatePerSecond = 0.5f;
     public float LastFireTime = 0f;

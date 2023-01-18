@@ -9,21 +9,17 @@ using Game.Components.Tags;
 
 namespace Game.UI;
 
-public class MainMenu : IUserInterfaceLoaded
+public class MainMenu : IUserInterfaceLoaded, IUserInterfaceUnloaded
 {
+    private readonly IScene _scene;
     private readonly ISceneModule _sceneModule;
     private readonly IApplication _app;
 
-    public MainMenu(ISceneModule sceneModule, IApplication app)
+    public MainMenu(IScene scene, ISceneModule sceneModule, IApplication app)
     {
+        _scene = scene;
         _sceneModule = sceneModule;
         _app = app;
-    }
-    
-    ~MainMenu()
-    {
-        // FIXME: unbind events
-        Console.WriteLine("FIXME: unbind events");
     }
 
     public void OnLoaded(RmlUserInterface ui)
@@ -32,7 +28,8 @@ public class MainMenu : IUserInterfaceLoaded
 
         if (play != null) {
             ui.AddEventListener(play, "click", @event => {
-                _sceneModule.Create(GameConstants.LevelRound);
+                _scene.IsActive = false;
+                _sceneModule.GetOrCreateScene(GameConstants.LevelRound);
             });
         }
 
@@ -41,5 +38,10 @@ public class MainMenu : IUserInterfaceLoaded
         if (quit != null) {
             ui.AddEventListener(quit, "click", @event => _app.Shutdown());
         }
+    }
+
+    public void OnUnloaded(RmlUserInterface ui)
+    {
+        Console.WriteLine("UNLOADED");
     }
 }

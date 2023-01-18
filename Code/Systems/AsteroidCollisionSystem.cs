@@ -1,25 +1,24 @@
-using System;
 using Duck.Ecs;
+using Duck.Ecs.Systems;
 using Duck.Physics.Events;
-using Duck.ServiceBus;
 using Game.Components;
 using Game.Components.Tags;
-using Silk.NET.Assimp;
 
-namespace Game.Observers;
+namespace Game.Systems;
 
-public class PawnCollisionObserver : ISystem
+public class AsteroidCollisionSystem : RunSystemBase<PhysicsCollision>
 {
     private readonly IWorld _world;
 
-    public PawnCollisionObserver(IWorld world, IEventBus eventBus)
+    public AsteroidCollisionSystem(IWorld world)
     {
         _world = world;
 
-        eventBus.AddListener<PhysicsCollision>(OnPawnCollision);
+        Filter = Filter<PhysicsCollision>(world)
+            .Build();
     }
 
-    private void OnPawnCollision(PhysicsCollision collision)
+    public override void RunEntity(int entityId, ref PhysicsCollision collision)
     {
         if (collision.A.Has<ProjectileTag>()) {
             _world.DeleteEntity(collision.A);

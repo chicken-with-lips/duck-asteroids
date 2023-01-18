@@ -1,93 +1,58 @@
-using System;
-using System.Net.Mime;
+﻿using System;
 using Duck;
 using Duck.Content;
 using Duck.Ecs;
+using Duck.Ecs.Systems;
 using Duck.Graphics.Components;
 using Duck.Graphics.Device;
 using Duck.Graphics.Mesh;
 using Duck.Graphics.Shaders;
-using Duck.Input;
 using Duck.Math;
-using Duck.Physics;
 using Duck.Physics.Components;
 using Duck.Scene;
 using Duck.Scene.Components;
-using Duck.Scene.Scripting;
-using Duck.ServiceBus;
+using Duck.Scene.Events;
 using Duck.Ui.Assets;
 using Duck.Ui.Components;
 using Game.Components;
 using Game.Components.Tags;
-using Game.Observers;
-using Game.Systems;
 using Game.UI;
 using Silk.NET.Maths;
 
-namespace Game.Scenes;
+namespace Game.Systems.Scenes;
 
-public class GameRoundScene : IGameScene, ISceneMadeActive
+public class CreateRoundSceneSystem : RunSystemBase<SceneWasCreated>
 {
-    #region Properties
-
-    public IScene Scene => _scene;
-
-    #endregion
-
-    #region Members
-
     private readonly IContentModule _contentModule;
-    private readonly IPhysicsModule _physicsModule;
-    private readonly IEventBus _eventBus;
-    private readonly IInputModule _inputModule;
-    private readonly IScene _scene;
-    private readonly ISceneModule _sceneModule;
 
     private IAsset<StaticMesh>? _planetMesh;
     private IAsset<StaticMesh>? _bulletMesh;
-    private IAsset<StaticMesh>? _asteroidMesh;
     private IAsset<StaticMesh>? _spaceshipMesh;
     private IAsset<UserInterface>? _hudAsset;
 
-    #endregion
-
-    public GameRoundScene(IScene scene, IApplication app)
+    public CreateRoundSceneSystem(IWorld world, IApplication app, ISceneModule sceneModule, IContentModule contentModule)
     {
-        _scene = scene;
+        _contentModule = contentModule;
 
-        _contentModule = app.GetModule<IContentModule>();
-        _physicsModule = app.GetModule<IPhysicsModule>();
-        _inputModule = app.GetModule<IInputModule>();
-        _eventBus = app.GetModule<IEventBus>();
-        _sceneModule = app.GetModule<ISceneModule>();
+        Filter = Filter<SceneWasCreated>(world)
+            .Build();
     }
 
-    ~GameRoundScene()
+    public override void RunEntity(int entityId, ref SceneWasCreated component)
     {
-        Dispose(false);
-    }
+        var scene = component.Scene;
 
-    public void OnActivated()
-    {
-        ThrowIfDisposed();
+        if (scene.Name != GameConstants.LevelRound) {
+            return;
+        }
 
         LoadContent();
-        CreateHud(_scene.World);
-        InitializeRound(_scene.World);
+        CreateHud(scene, scene.World);
+        InitializeRound(scene.World);
 
-        var composition = _scene.SystemComposition;
-        composition
-            .Add(new PawnCollisionObserver(composition.World, _eventBus))
-            .Add(new GameOverSystem(composition.World, _sceneModule))
-            .Add(new CameraControllerSystem(composition.World))
-            .Add(new PlayerControllerSystem(composition.World, _inputModule))
-            .Add(new DestroyAfterTimeSystem(composition.World))
-            .Add(new DestroyAfterHealthEmptySystem(composition.World))
-            .Add(new AsteroidSpawnerSystem(composition.World, _physicsModule, _asteroidMesh));
-
-        var physWorld = _physicsModule.GetOrCreatePhysicsWorld(composition.World);
-        physWorld.Gravity = Vector3D<float>.Zero;
+        scene.IsActive = true;
     }
+
 
     private void LoadContent()
     {
@@ -137,19 +102,17 @@ public class GameRoundScene : IGameScene, ISceneMadeActive
         );
 
         _planetMesh = _contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/SM_Env_Planet_01.fbx");
-        _asteroidMesh = _contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/SM_Env_Astroid_02.fbx");
         _bulletMesh = _contentModule.Import<StaticMesh>("POLYGON_ScifiSpace/Meshes/FX_Meshes/SM_SphereGeo.fbx");
         _hudAsset = _contentModule.Import<UserInterface>("UI/Hud.rml");
     }
 
     private void InitializeRound(IWorld world)
     {
-        CreateCamera(world);
-        CreatePlayer(world);
+        CreatePlayer(world, CreateCamera(world));
         CreatePlanet(world);
     }
 
-    private void CreateHud(IWorld world)
+    private void CreateHud(IScene scene, IWorld world)
     {
         var mainMenu = world.CreateEntity();
 
@@ -160,12 +123,13 @@ public class GameRoundScene : IGameScene, ISceneMadeActive
         ref var uiComponent = ref mainMenu.Get<UserInterfaceComponent>();
         uiComponent.ContextName = "Hud";
         uiComponent.Interface = _hudAsset?.MakeUniqueReference();
-        uiComponent.Script = new Hud(_scene);
+        uiComponent.Script = new Hud(scene);
     }
 
-    private void CreateCamera(IWorld world)
+    private IEntity CreateCamera(IWorld world)
     {
         var cameraEntity = world.CreateEntity();
+        cameraEntity.Get<CameraControllerComponent>();
 
         ref var transformComponent = ref cameraEntity.Get<TransformComponent>();
         transformComponent.Position = new Vector3D<float>(0, 10000, 0);
@@ -175,8 +139,13 @@ public class GameRoundScene : IGameScene, ISceneMadeActive
             MathHelper.ToRadians(0)
         );
 
-        cameraEntity.Get<CameraComponent>();
-        cameraEntity.Get<CameraControllerComponent>();
+        ref var cameraComponent = ref cameraEntity.Get<CameraComponent>();
+        cameraComponent.FieldOfView = 75f;
+        cameraComponent.NearClipPlane = 0.1f;
+        cameraComponent.FarClipPlane = 20000f;
+        cameraComponent.IsActive = true;
+
+        return cameraEntity;
     }
 
     private void CreatePlanet(IWorld world)
@@ -203,7 +172,7 @@ public class GameRoundScene : IGameScene, ISceneMadeActive
         health.Value = 150;
     }
 
-    private void CreatePlayer(IWorld world)
+    private void CreatePlayer(IWorld world, IEntity camera)
     {
         var playerEntity = world.CreateEntity();
         playerEntity.Get<PawnTag>();
@@ -211,6 +180,7 @@ public class GameRoundScene : IGameScene, ISceneMadeActive
 
         ref var controllerComponent = ref playerEntity.Get<PlayerControllerComponent>();
         controllerComponent.ProjectileAsset = _bulletMesh?.MakeSharedReference();
+        controllerComponent.CameraEntityId = camera.Id;
 
         ref var rigidBody = ref playerEntity.Get<RigidBodyComponent>();
         rigidBody.Mass = 100;
@@ -229,27 +199,4 @@ public class GameRoundScene : IGameScene, ISceneMadeActive
         transform.Position = new Vector3D<float>(0, 0, -2500f);
         transform.Rotation = Quaternion<float>.Identity;
     }
-
-    #region IDisposable
-
-    public bool IsDisposed { get; private set; }
-
-    public void Dispose()
-    {
-        Dispose(true);
-    }
-
-    private void Dispose(bool disposing)
-    {
-        IsDisposed = true;
-    }
-
-    private void ThrowIfDisposed()
-    {
-        if (IsDisposed) {
-            throw new ObjectDisposedException("World");
-        }
-    }
-
-    #endregion
 }

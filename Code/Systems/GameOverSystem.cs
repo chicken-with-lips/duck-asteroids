@@ -27,6 +27,7 @@ public class GameOverSystem : SystemBase
             return;
         }
 
-        var sceneModule = _sceneModule.Create(GameConstants.LevelMainMenu);
+        _sceneModule.Unload(_sceneModule.GetLoadedScene(GameConstants.LevelRound));
+        _sceneModule.GetLoadedScene(GameConstants.LevelMainMenu).IsActive = true;
     }
 }

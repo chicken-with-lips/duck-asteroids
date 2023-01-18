@@ -37,7 +37,6 @@ public class Hud : IUserInterfaceLoaded, IUserInterfaceTick
     {
         _ui?.Document.GetElementById("enemy-count")?.SetInnerRml(_enemyFilter.EntityList.Length.ToString());
 
-
         var planets = _scene.World.GetEntitiesByComponent<PlanetTag>();
         var health = 0;
 
