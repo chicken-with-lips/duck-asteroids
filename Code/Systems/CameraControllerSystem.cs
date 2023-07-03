@@ -1,32 +1,57 @@
-using Duck.Ecs;
-using Duck.Ecs.Systems;
-using Duck.Graphics.Components;
+using System.Runtime.CompilerServices;
+using Arch.Core;
+using Arch.Core.Extensions;
+using Arch.System;
+using Duck.Animation.Tweening;
 using Duck.Math;
-using Duck.Scene.Components;
+using Duck.Renderer.Components;
 using Game.Components;
 using Silk.NET.Maths;
 
 namespace Game.Systems;
 
-public class CameraControllerSystem : RunSystemBase<TransformComponent, CameraControllerComponent>
+public partial class CameraControllerSystem : BaseSystem<World, float>
 {
-    private readonly IWorld _world;
-
-    public CameraControllerSystem(IWorld world)
+    public CameraControllerSystem(World world)
+        : base(world)
     {
-        _world = world;
-
-        Filter = Filter<TransformComponent, CameraControllerComponent>(world)
-            .Build();
     }
 
-    public override void RunEntity(int entityId, ref TransformComponent transformComponent, ref CameraControllerComponent controllerComponent)
+    [Query]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Run(ref TransformComponent transform, ref CameraControllerComponent cameraController)
     {
-        Quaternion<float> destRot = Quaternion<float>.CreateFromAxisAngle(Vector3D<float>.UnitZ, 0);
-        // Quaternion<float> relativeRot = Quaternion<float>.Inverse(transformComponent.Rotation) * destRot;
-        Quaternion<float> pointDown = Quaternion<float>.CreateFromYawPitchRoll(0, MathHelper.ToRadians(-90f), 0);
+        if (
+            (!cameraController.Target.IsAlive() || !cameraController.Target.Entity.Has<TransformComponent>())
+            || (!cameraController.Player.IsAlive() || !cameraController.Player.Entity.Has<TransformComponent>())) {
+            return;
+        }
 
-        // transformComponent.Rotation = destRot * relativeRot * pointDown;
-        // transformComponent.Rotation = destRot * relativeRot * pointDown;
+        var playerTransform = cameraController.Player.Entity.Get<TransformComponent>();
+
+        if (cameraController.PointOfInterest.IsAlive() && cameraController.PointOfInterest.Entity.Has<TransformComponent>()) {
+            // do we need to switch target?
+            var poiTransform = cameraController.PointOfInterest.Entity.Get<TransformComponent>();
+            var distance = Vector3D.Distance(playerTransform.Position, poiTransform.Position);
+
+            if (distance >= 7500f) {
+                cameraController.Target = cameraController.Player;
+            } else {
+                cameraController.Target = cameraController.PointOfInterest;
+            }
+        }
+
+        var targetTransform = cameraController.Target.Entity.Get<TransformComponent>();
+
+        var targetPosition = targetTransform.Position;
+        targetPosition.Y = transform.Position.Y;
+
+        var targetDistance = Vector3D.Distance(transform.Position, targetPosition);
+
+        if (targetDistance == 0f) {
+            return;
+        }
+
+        transform.Position = MathF.Lerp(transform.Position, targetPosition, Easing.OutSine(0.05f));
     }
 }

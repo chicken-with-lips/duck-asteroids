@@ -1,37 +1,38 @@
-using Duck.Ecs;
-using Duck.Ecs.Systems;
+using System.Runtime.CompilerServices;
+using Arch.Core;
+using Arch.Core.Extensions;
+using Arch.System;
 using Duck.Physics.Events;
 using Game.Components;
-using Game.Components.Tags;
 
 namespace Game.Systems;
 
-public class AsteroidCollisionSystem : RunSystemBase<PhysicsCollision>
+public partial class AsteroidCollisionSystem : BaseSystem<World, float>
 {
-    private readonly IWorld _world;
-
-    public AsteroidCollisionSystem(IWorld world)
+    public AsteroidCollisionSystem(World world)
+        : base(world)
     {
-        _world = world;
-
-        Filter = Filter<PhysicsCollision>(world)
-            .Build();
     }
 
-    public override void RunEntity(int entityId, ref PhysicsCollision collision)
+    [Query]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Run(in Entity entity, ref PhysicsCollision collision)
     {
-        if (collision.A.Has<ProjectileTag>()) {
-            _world.DeleteEntity(collision.A);
-
-            if (collision.B.Has<EnemyTag>()) {
-                _world.DeleteEntity(collision.B);
-            }
+        if (!collision.A.IsAlive() || !collision.B.IsAlive()) {
+            return;
         }
 
-        if (collision.A.Has<EnemyTag>() && collision.B.Has<PlanetTag>()) {
-            _world.DeleteEntity(collision.A);
+        if (collision.A.Entity.Has<EnemyTag>() && collision.B.Entity.Has<PlanetTag>()) {
+            World.Destroy(collision.A);
 
-            _world.GetComponent<HealthComponent>(collision.B.Id).Value -= 50;
+            ref var health = ref collision.B.Entity.Get<HealthComponent>();
+            health.Value -= 50;
+        } else if (collision.A.Entity.Has<ProjectileTag>()) {
+            World.Destroy(collision.A);
+
+            if (collision.B.Entity.Has<EnemyTag>()) {
+                World.Destroy(collision.B);
+            }
         }
     }
 }

@@ -1,5 +1,6 @@
+using Arch.Core;
 using Duck.Content;
-using Duck.Graphics.Mesh;
+using Duck.Renderer.Mesh;
 using Duck.Serialization;
 
 namespace Game.Components;
@@ -7,8 +8,8 @@ namespace Game.Components;
 [AutoSerializable]
 public partial struct PlayerControllerComponent
 {
-    public IAssetReference<StaticMesh>? ProjectileAsset = default;
-    public int CameraEntityId = -1;
+    public AssetReference<StaticMesh>? ProjectileAsset = default;
+    public EntityReference CameraEntity = default;
 
     public float FireRatePerSecond = 0.5f;
     public float LastFireTime = 0f;

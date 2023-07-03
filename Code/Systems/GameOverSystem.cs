@@ -1,33 +1,41 @@
-using System;
-using Duck.Ecs;
-using Duck.Ecs.Systems;
-using Duck.Scene;
-using Game.Components.Tags;
+using System.Runtime.CompilerServices;
+using Arch.Core;
+using Arch.System;
+using Duck.Renderer;
+using Game.Components;
 
 namespace Game.Systems;
 
-public class GameOverSystem : SystemBase
+public partial class GameOverSystem : BaseSystem<World, float>
 {
-    private readonly IWorld _world;
-    private readonly ISceneModule _sceneModule;
-    private readonly IFilter<PlanetTag> _filter;
+    private readonly World _world;
+    private readonly RendererModule _rendererModule;
 
-    public GameOverSystem(IWorld world, ISceneModule sceneModule)
+    public GameOverSystem(World world, RendererModule rendererModule)
+        : base(world)
     {
         _world = world;
-        _sceneModule = sceneModule;
-
-        _filter = Filter<PlanetTag>(world)
-            .Build();
+        _rendererModule = rendererModule;
     }
 
-    public override void Run()
+    [Query]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Run()
     {
-        if (_filter.EntityRemovedList.Length == 0) {
+        if (_world.CountEntities(new QueryDescription().WithAll<PlanetTag>()) > 0) {
             return;
         }
 
-        _sceneModule.Unload(_sceneModule.GetLoadedScene(GameConstants.LevelRound));
-        _sceneModule.GetLoadedScene(GameConstants.LevelMainMenu).IsActive = true;
+        var scene = _rendererModule.GetLoadedScene(GameConstants.LevelRound);
+
+        if (null != scene) {
+            _rendererModule.UnloadScene(scene);
+        }
+
+        scene = _rendererModule.GetLoadedScene(GameConstants.LevelMainMenu);
+        
+        if (scene != null) {
+            scene.IsActive = true;
+        }
     }
 }

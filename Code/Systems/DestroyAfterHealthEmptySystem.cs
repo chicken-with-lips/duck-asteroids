@@ -1,25 +1,26 @@
-using Duck.Ecs;
-using Duck.Ecs.Systems;
+using System.Runtime.CompilerServices;
+using Arch.Core;
+using Arch.System;
 using Game.Components;
 
 namespace Game.Systems;
 
-public class DestroyAfterHealthEmptySystem : RunSystemBase<HealthComponent>
+public partial class DestroyAfterHealthEmptySystem : BaseSystem<World, float>
 {
-    private readonly IWorld _world;
+    private readonly World _world;
 
-    public DestroyAfterHealthEmptySystem(IWorld world)
+    public DestroyAfterHealthEmptySystem(World world)
+        : base(world)
     {
         _world = world;
-
-        Filter = Filter<HealthComponent>(world)
-            .Build();
     }
 
-    public override void RunEntity(int entityId, ref HealthComponent healthComponent)
+    [Query]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Run(in Entity entity, in HealthComponent health)
     {
-        if (healthComponent.Value <= 0) {
-            _world.DeleteEntity(entityId);
+        if (health.Value <= 0) {
+            _world.Destroy(entity);
         }
     }
 }

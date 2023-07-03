@@ -1,6 +1,6 @@
 using Duck.Serialization;
 
-namespace Game.Components.Tags;
+namespace Game.Components;
 
 [AutoSerializable]
 public partial struct PlanetTag
@@ -21,7 +21,6 @@ public partial struct PlayerTag
 public partial struct ProjectileTag
 {
 }
-
 
 [AutoSerializable]
 public partial struct EnemyTag

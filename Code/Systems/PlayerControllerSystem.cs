@@ -1,176 +1,168 @@
 using System;
+using System.Runtime.CompilerServices;
+using Arch.Core;
+using Arch.Core.Extensions;
+using Arch.System;
 using Duck;
-using Duck.Ecs;
-using Duck.Ecs.Systems;
-using Duck.Graphics.Components;
 using Duck.Input;
-using Duck.Math;
+using Duck.Physics;
 using Duck.Physics.Components;
-using Duck.Scene.Components;
+using Duck.Renderer;
+using Duck.Renderer.Components;
 using Game.Components;
-using Game.Components.Tags;
 using Silk.NET.Maths;
+using CommandBuffer = Arch.CommandBuffer.CommandBuffer;
+using MathF = Duck.Math.MathF;
 
 namespace Game.Systems;
 
-public class PlayerControllerSystem : RunSystemBase<PlayerControllerComponent, TransformComponent, RigidBodyComponent>
+public partial class PlayerControllerSystem : BaseSystem<World, float>, IBufferedSystem
 {
+    public CommandBuffer CommandBuffer { get; set; }
+
     private readonly InputAxis _moveForward;
     private readonly InputAxis _moveRight;
     private readonly InputAxis _mouseX;
     private readonly InputAxis _mouseY;
-    private readonly InputAction _fire;
-    private readonly IWorld _world;
 
-    public PlayerControllerSystem(IWorld world, IInputModule input)
+    private readonly InputAction _fire;
+    private readonly World _world;
+    private readonly IRendererModule _rendererModule;
+    private readonly IPhysicsWorld _physicsWorld;
+
+    public PlayerControllerSystem(World world, IInputModule input, IPhysicsModule physicsModule, IRendererModule rendererModule)
+        : base(world)
     {
         _world = world;
+        _rendererModule = rendererModule;
+        _physicsWorld = physicsModule.GetOrCreatePhysicsWorld(_world);
 
         _moveForward = input.GetAxis("MoveForward");
         _moveRight = input.GetAxis("StrafeRight");
         _mouseX = input.GetAxis("MouseX");
         _mouseY = input.GetAxis("MouseY");
         _fire = input.GetAction("Fire");
-
-        Filter = Filter<PlayerControllerComponent, TransformComponent, RigidBodyComponent>(world)
-            .Build();
     }
 
-    public override void RunEntity(int entityId, ref PlayerControllerComponent playerController, ref TransformComponent transform, ref RigidBodyComponent rigidBody)
+    [Query]
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public void Run(in Entity entity, ref PlayerControllerComponent playerController, ref TransformComponent transform, ref RigidBodyComponent rigidBody)
     {
-        var moveForwardValue = Vector3D.Normalize(transform.Forward) * 100000f * _moveForward.Value * Time.DeltaFrame;
-        var moveRightValue = Vector3D.Normalize(transform.Right) * 100000f * _moveRight.Value * Time.DeltaFrame;
-        var mouseLocationValue = new Vector2D<int>((int)_mouseX.Value, (int)_mouseY.Value);
-        var camera = _world.GetEntity(playerController.CameraEntityId).Get<CameraComponent>();
-        var cameraTransform = _world.GetEntity(playerController.CameraEntityId).Get<TransformComponent>();
+        var moveForwardValue = Vector3D.Normalize(transform.Forward) * 5000f * _moveForward.Value * Time.DeltaFrame;
+        var moveRightValue = Vector3D.Normalize(transform.Right) * 5000f * _moveRight.Value * Time.DeltaFrame;
+        var mouseLocationValue = new Vector3D<float>(_mouseX.Value, _mouseY.Value, 0);
 
-        
-        
+        var cameraEntity = playerController.CameraEntity.Entity;
+        var camera = cameraEntity.Get<CameraComponent>();
+        var cameraTransform = cameraEntity.Get<TransformComponent>();
+
         if (moveForwardValue.LengthSquared > 0) {
-            rigidBody.AddForce(moveForwardValue, RigidBodyComponent.ForceMode.Force);
+            rigidBody.AddForce(moveForwardValue, RigidBodyComponent.ForceMode.VelocityChange);
         }
 
         if (moveRightValue.LengthSquared > 0) {
-            rigidBody.AddForce(moveRightValue, RigidBodyComponent.ForceMode.Force);
+            rigidBody.AddForce(moveRightValue, RigidBodyComponent.ForceMode.VelocityChange);
         }
 
-        // Console.WriteLine(new Vector3D<float>(_mouseX.Value, 0, _mouseY.Value) + " -> " + (transform.Position + mouseLocationValue));
+        var aimPosition = camera.ScreenToWorldPosition(_rendererModule.GameView, cameraTransform, mouseLocationValue);
+        aimPosition.Y = 0;
+        aimPosition *= Vector3D.Distance(transform.Position, cameraTransform.Position);
 
-        // Vector3D<float> direction = mouseLocationValue - transform.Position;
-        // Vector3D<float> forward = new Vector3D<float>(direction.X, direction.Z, 0);
+        var torque = ComputeRotation(entity, cameraTransform.Position + aimPosition, transform);
 
-        var aimPosition = transform.Position + (camera.ScreenToWorldPosition(cameraTransform, mouseLocationValue) * 1000f);
-
-        // if (forward.LengthSquared > 0.0f) {
-        // Vector3D<float> aimLocation = transform.Position + mouseLocationValue;
-        Vector3D<float> direction2 = aimPosition - transform.Position;
-        var direction3 = new Vector3D<float>(direction2.X, transform.Position.Y, direction2.Z);
-        // Console.WriteLine(direction3);
-        // if (direction3.LengthSquared > 0.0f) {
-        Quaternion<float> to = MathHelper.LookRotation(-direction3, Vector3D<float>.UnitY);
-        transform.Rotation = to;
-        // }
-
-        ComputeTorque(to, transform, rigidBody);
-
-        // rigidBody.AddTorque(ComputeTorque(to, transform, rigidBody), RigidBodyComponent.ForceMode.VelocityChange);
-        
-        // transform.Rotation = MathHelper.LookRotation(forward, Vector3D<float>.UnitY);
-        // }
-
-
-        // transform.Rotation = MathHelper.FromToRotation(
-        // transform.Position,
-        // transform.Position + new Vector3D<float>(-_mousePosition.X, transform.Position.Y, -_mousePosition.Y)
-        // );
+        if (!float.IsNaN(torque.X) && !float.IsNaN(torque.Y) && !float.IsNaN(torque.Z)) {
+            rigidBody.AddTorque(torque, RigidBodyComponent.ForceMode.VelocityChange);
+        }
 
         if (_fire.IsActivated) {
             SpawnProjectile(ref playerController, transform);
         }
     }
 
-    public Vector3D<float> ComputeTorque(Quaternion<float> desiredRotation, TransformComponent transform, RigidBodyComponent rigidBody)
+    private void SpawnProjectile(ref PlayerControllerComponent playerController, in TransformComponent parentTransform)
     {
-        //q will rotate from our current rotation to desired rotation
-        var q = desiredRotation * Quaternion<float>.Inverse(transform.Rotation);
-        //convert to angle axis representation so we can do math with angular velocity
-        MathHelper.ToAngleAxis(q, out var xMag, out var x);
-
-        x = Vector3D.Normalize(x);
-        //w is the angular velocity we need to achieve
-        var w = x * xMag * MathHelper.Deg2Rad / Time.DeltaFrame;
-        w -= rigidBody.AngularVelocity;
-        Console.WriteLine(rigidBody.AngularVelocity);
-        //to multiply with inertia tensor local then rotationTensor coords
-        var wl = InverseTransformDirection(transform, w);
-
-        var wll = wl;
-        wll = Vector3D.Transform(wll, rigidBody.InertiaTensorRotation);
-        wll *= rigidBody.InertiaTensor;
-        var Tl = Vector3D.Transform(wll, Quaternion<float>.Inverse(rigidBody.InertiaTensorRotation));
-        var T = TransformDirection(transform, Tl);
-        return T;
-    }
-
-
-    public Vector3D<float> InverseTransformDirection(TransformComponent transformComponent, Vector3D<float> direction)
-    {
-        var localToWorld =
-                           Matrix4X4.CreateScale(transformComponent.Scale)
-                           * Matrix4X4.CreateFromQuaternion(transformComponent.Rotation)
-                           * Matrix4X4.CreateTranslation(transformComponent.Position)
-                           ;
-
-        Matrix4X4.Invert(localToWorld, out var inverseLocalToWorld);
-
-        var r = Vector3D.Multiply(direction, new Matrix3X4<float>(inverseLocalToWorld.Column1, inverseLocalToWorld.Column2, inverseLocalToWorld.Column3));
-
-        return new Vector3D<float>(r.X, r.Y, r.Z);
-    }
-
-    public Vector3D<float> TransformDirection(TransformComponent transformComponent, Vector3D<float> direction)
-    {
-        var localToWorld =
-            Matrix4X4.CreateScale(transformComponent.Scale)
-            * Matrix4X4.CreateFromQuaternion(transformComponent.Rotation)
-            * Matrix4X4.CreateTranslation(transformComponent.Position);
-
-        var r = Vector3D.Multiply(direction, new Matrix3X4<float>(localToWorld.Column1, localToWorld.Column2, localToWorld.Column3));
-
-        return new Vector3D<float>(r.X, r.Y, r.Z);
-    }
-
-    private void SpawnProjectile(ref PlayerControllerComponent playerController, TransformComponent parentTransform)
-    {
-        if (playerController.LastFireTime != 0 && (playerController.LastFireTime + playerController.FireRatePerSecond) > Time.Elapsed) {
+        if (playerController.LastFireTime > 0 && (playerController.LastFireTime + playerController.FireRatePerSecond) > Time.Elapsed) {
             return;
         }
 
         playerController.LastFireTime = Time.Elapsed;
 
-        var bullet = _world.CreateEntity();
-        bullet.Get<ProjectileTag>();
-
-        ref var destroyAfter = ref bullet.Get<DestroyAfterTimeComponent>();
-        destroyAfter.Lifetime = 10f;
+        var bullet = _world.Create(
+            new TransformComponent {
+                Position = parentTransform.Position + (parentTransform.Forward * 500f),
+                Rotation = Quaternion<float>.Identity,
+                Scale = Vector3D<float>.One,
+            },
+            new BoundingSphereComponent {
+                Radius = 75f,
+            },
+            new RigidBodyComponent {
+                Mass = 100,
+                Type = RigidBodyComponent.BodyType.Dynamic,
+                AngularDamping = 0f,
+                LinearDamping = 0f,
+                AxisLock = RigidBodyComponent.Lock.LinearY | RigidBodyComponent.Lock.AngularZ | RigidBodyComponent.Lock.AngularX,
+                IsGravityEnabled = false,
+            },
+            new StaticMeshComponent {
+                Mesh = playerController.ProjectileAsset,
+            },
+            new DestroyAfterTimeComponent {
+                Lifetime = 10f,
+            },
+            new ProjectileTag()
+        );
 
         ref var rigidBody = ref bullet.Get<RigidBodyComponent>();
-        rigidBody.Mass = 100;
-        rigidBody.Type = RigidBodyComponent.BodyType.Dynamic;
-        rigidBody.AngularDamping = 0f;
-        rigidBody.LinearDamping = 0f;
-        rigidBody.AxisLock = RigidBodyComponent.Lock.LinearY | RigidBodyComponent.Lock.AngularZ | RigidBodyComponent.Lock.AngularX;
-        rigidBody.IsGravityEnabled = false;
         rigidBody.AddForce(Vector3D.Normalize(parentTransform.Forward) * 10000f, RigidBodyComponent.ForceMode.VelocityChange);
+    }
 
-        ref var boundingSphere = ref bullet.Get<BoundingSphereComponent>();
-        boundingSphere.Radius = 75f;
+    private Vector3D<float> ComputeRotation(in Entity entity, Vector3D<float> aimPosition, in TransformComponent playerTransform)
+    {
+        var rigidBody = _physicsWorld.GetRigidBody(entity);
 
-        ref var meshComponent = ref bullet.Get<MeshComponent>();
-        meshComponent.Mesh = playerController.ProjectileAsset;
+        if (null == rigidBody) {
+            return Vector3D<float>.Zero;
+        }
 
-        ref var bulletTransform = ref bullet.Get<TransformComponent>();
-        bulletTransform.Position = parentTransform.Position + (parentTransform.Forward * 300f);
-        bulletTransform.Rotation = Quaternion<float>.Identity;
+        var aimDirection = playerTransform.Position + new Vector3D<float>(-aimPosition.X, playerTransform.Position.Y, -aimPosition.Z);
+        var desiredRotation = MathF.LookRotation(Vector3D.Normalize(aimDirection), Vector3D<float>.UnitY);
+
+        var frequency = 6f;
+        var damping = 1f;
+        var kp = (6f * frequency) * (6f * frequency) * 0.25f;
+        var kd = 4.5f * frequency * damping;
+
+        var q = desiredRotation * Quaternion<float>.Inverse(playerTransform.Rotation);
+
+        // Q can be the-long-rotation-around-the-sphere eg. 350 degrees
+        // We want the equivalent short rotation eg. -10 degrees
+        // Check if rotation is greater than 190 degrees == q.w is negative
+        if (q.W < 0) {
+            // Convert the quaternion to equivalent "short way around" quaternion
+            q.X = -q.X;
+            q.Y = -q.Y;
+            q.Z = -q.Z;
+            q.W = -q.W;
+        }
+
+        MathF.ToAngleAxis(q, out var xMag, out var xTmp);
+
+        // FIXME: convert to world space
+        var rotation = rigidBody.CenterMassLocalPose.Quaternion;
+
+        var x = Vector3D.Normalize(xTmp) * MathF.Deg2Rad;
+
+        var angularWS = Vector3D.Transform(rigidBody.AngularVelocity.ToGeneric(), playerTransform.Rotation);
+        angularWS = rigidBody.AngularVelocity.ToGeneric();
+
+        var rotInertia2World = Quaternion<float>.Multiply(rotation.ToGeneric(), playerTransform.Rotation);
+        var pidv = kp * x * xMag - kd * angularWS;
+        pidv = MathF.Multiply(Quaternion<float>.Inverse(rotInertia2World), pidv) * new Vector3D<float>(12f, 12f, 12f);
+        pidv = MathF.Multiply(rotInertia2World, pidv);
+
+        pidv *= 0.001f;
+
+        return pidv;
     }
 }
