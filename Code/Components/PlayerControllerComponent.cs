@@ -1,6 +1,6 @@
 using Arch.Core;
 using Duck.Content;
-using Duck.Renderer.Mesh;
+using Duck.Graphics.Mesh;
 using Duck.Serialization;
 
 namespace Game.Components;

@@ -4,7 +4,7 @@ using Arch.Core.Extensions;
 using Arch.System;
 using Duck.Animation.Tweening;
 using Duck.Math;
-using Duck.Renderer.Components;
+using Duck.Graphics.Components;
 using Game.Components;
 using Silk.NET.Maths;
 
@@ -22,16 +22,16 @@ public partial class CameraControllerSystem : BaseSystem<World, float>
     public void Run(ref TransformComponent transform, ref CameraControllerComponent cameraController)
     {
         if (
-            (!cameraController.Target.IsAlive() || !cameraController.Target.Entity.Has<TransformComponent>())
-            || (!cameraController.Player.IsAlive() || !cameraController.Player.Entity.Has<TransformComponent>())) {
+            (!World.IsAlive(cameraController.Target) || !World.Has<TransformComponent>(cameraController.Target.Entity))
+            || (!World.IsAlive(cameraController.Player) || !World.Has<TransformComponent>(cameraController.Player.Entity))) {
             return;
         }
 
-        var playerTransform = cameraController.Player.Entity.Get<TransformComponent>();
+        var playerTransform = World.Get<TransformComponent>(cameraController.Player.Entity);
 
-        if (cameraController.PointOfInterest.IsAlive() && cameraController.PointOfInterest.Entity.Has<TransformComponent>()) {
+        if (World.IsAlive(cameraController.PointOfInterest) && World.Has<TransformComponent>(cameraController.PointOfInterest.Entity)) {
             // do we need to switch target?
-            var poiTransform = cameraController.PointOfInterest.Entity.Get<TransformComponent>();
+            var poiTransform = World.Get<TransformComponent>(cameraController.PointOfInterest.Entity);
             var distance = Vector3D.Distance(playerTransform.Position, poiTransform.Position);
 
             if (distance >= 7500f) {
@@ -41,7 +41,7 @@ public partial class CameraControllerSystem : BaseSystem<World, float>
             }
         }
 
-        var targetTransform = cameraController.Target.Entity.Get<TransformComponent>();
+        var targetTransform = World.Get<TransformComponent>(cameraController.Target.Entity);
 
         var targetPosition = targetTransform.Position;
         targetPosition.Y = transform.Position.Y;

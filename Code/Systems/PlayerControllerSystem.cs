@@ -4,11 +4,15 @@ using Arch.Core;
 using Arch.Core.Extensions;
 using Arch.System;
 using Duck;
+using Duck.Audio;
+using Duck.Audio.Components;
+using Duck.Content;
 using Duck.Input;
 using Duck.Physics;
 using Duck.Physics.Components;
-using Duck.Renderer;
-using Duck.Renderer.Components;
+using Duck.Graphics;
+using Duck.Graphics.Components;
+using Duck.Platform;
 using Game.Components;
 using Silk.NET.Maths;
 using CommandBuffer = Arch.CommandBuffer.CommandBuffer;
@@ -26,22 +30,23 @@ public partial class PlayerControllerSystem : BaseSystem<World, float>, IBuffere
     private readonly InputAxis _mouseY;
 
     private readonly InputAction _fire;
-    private readonly World _world;
     private readonly IRendererModule _rendererModule;
     private readonly IPhysicsWorld _physicsWorld;
+    private readonly SoundClip _shootSound;
 
-    public PlayerControllerSystem(World world, IInputModule input, IPhysicsModule physicsModule, IRendererModule rendererModule)
+    public PlayerControllerSystem(World world, IInputModule input, IPhysicsModule physicsModule, IRendererModule rendererModule, IContentModule contentModule)
         : base(world)
     {
-        _world = world;
         _rendererModule = rendererModule;
-        _physicsWorld = physicsModule.GetOrCreatePhysicsWorld(_world);
+        _physicsWorld = physicsModule.GetOrCreatePhysicsWorld(World);
 
         _moveForward = input.GetAxis("MoveForward");
         _moveRight = input.GetAxis("StrafeRight");
         _mouseX = input.GetAxis("MouseX");
         _mouseY = input.GetAxis("MouseY");
         _fire = input.GetAction("Fire");
+
+        _shootSound = contentModule.Database.GetAsset<SoundClip>(new Uri("file:///Retro_8Bit_Sounds/Weapons/retro_laser_gun_shoot_15.wav"));
     }
 
     [Query]
@@ -53,8 +58,8 @@ public partial class PlayerControllerSystem : BaseSystem<World, float>, IBuffere
         var mouseLocationValue = new Vector3D<float>(_mouseX.Value, _mouseY.Value, 0);
 
         var cameraEntity = playerController.CameraEntity.Entity;
-        var camera = cameraEntity.Get<CameraComponent>();
-        var cameraTransform = cameraEntity.Get<TransformComponent>();
+        var camera = World.Get<CameraComponent>(cameraEntity);
+        var cameraTransform = World.Get<TransformComponent>(cameraEntity);
 
         if (moveForwardValue.LengthSquared > 0) {
             rigidBody.AddForce(moveForwardValue, RigidBodyComponent.ForceMode.VelocityChange);
@@ -64,7 +69,7 @@ public partial class PlayerControllerSystem : BaseSystem<World, float>, IBuffere
             rigidBody.AddForce(moveRightValue, RigidBodyComponent.ForceMode.VelocityChange);
         }
 
-        var aimPosition = camera.ScreenToWorldPosition(_rendererModule.GameView, cameraTransform, mouseLocationValue);
+        var aimPosition = camera.ScreenToWorldPosition(_rendererModule.PrimaryView, cameraTransform, mouseLocationValue);
         aimPosition.Y = 0;
         aimPosition *= Vector3D.Distance(transform.Position, cameraTransform.Position);
 
@@ -87,7 +92,7 @@ public partial class PlayerControllerSystem : BaseSystem<World, float>, IBuffere
 
         playerController.LastFireTime = Time.Elapsed;
 
-        var bullet = _world.Create(
+        var bullet = World.Create(
             new TransformComponent {
                 Position = parentTransform.Position + (parentTransform.Forward * 500f),
                 Rotation = Quaternion<float>.Identity,
@@ -97,12 +102,14 @@ public partial class PlayerControllerSystem : BaseSystem<World, float>, IBuffere
                 Radius = 75f,
             },
             new RigidBodyComponent {
-                Mass = 100,
                 Type = RigidBodyComponent.BodyType.Dynamic,
                 AngularDamping = 0f,
                 LinearDamping = 0f,
                 AxisLock = RigidBodyComponent.Lock.LinearY | RigidBodyComponent.Lock.AngularZ | RigidBodyComponent.Lock.AngularX,
                 IsGravityEnabled = false,
+            },
+            new MassComponent {
+                Value = 100,
             },
             new StaticMeshComponent {
                 Mesh = playerController.ProjectileAsset,
@@ -113,8 +120,16 @@ public partial class PlayerControllerSystem : BaseSystem<World, float>, IBuffere
             new ProjectileTag()
         );
 
-        ref var rigidBody = ref bullet.Get<RigidBodyComponent>();
+        ref var rigidBody = ref World.Get<RigidBodyComponent>(bullet);
         rigidBody.AddForce(Vector3D.Normalize(parentTransform.Forward) * 10000f, RigidBodyComponent.ForceMode.VelocityChange);
+
+        // spawn sound
+
+        World.Create(
+            new SoundComponent {
+                Sound = _shootSound.MakeSharedReference()
+            }
+        );
     }
 
     private Vector3D<float> ComputeRotation(in Entity entity, Vector3D<float> aimPosition, in TransformComponent playerTransform)

@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 using Arch.Core;
 using Arch.Core.Extensions;
 using Arch.System;
-using Duck.Renderer.Components;
+using Duck.Graphics.Components;
 using Game.Components;
 using Silk.NET.Maths;
 using MathF = Duck.Math.MathF;
@@ -22,19 +22,19 @@ public partial class ObjectivePointerSystem : BaseSystem<World, float>
     public void Run(ref TransformComponent transform, in ObjectivePointerComponent objectivePointer)
     {
         if (
-            (!objectivePointer.CameraController.IsAlive() || !objectivePointer.CameraController.Entity.Has<TransformComponent>())
-            || (!objectivePointer.Player.IsAlive() || !objectivePointer.Player.Entity.Has<TransformComponent>())) {
+            (!World.IsAlive(objectivePointer.CameraController) || !World.Has<TransformComponent>(objectivePointer.CameraController.Entity))
+            || (!World.IsAlive(objectivePointer.Player) || !World.Has<TransformComponent>(objectivePointer.Player.Entity))) {
             return;
         }
 
-        var playerTransform = objectivePointer.Player.Entity.Get<TransformComponent>();
-        var cameraController = objectivePointer.CameraController.Entity.Get<CameraControllerComponent>();
+        var playerTransform = World.Get<TransformComponent>(objectivePointer.Player.Entity);
+        var cameraController = World.Get<CameraControllerComponent>(objectivePointer.CameraController.Entity);
 
-        if (!cameraController.PointOfInterest.IsAlive()) {
+        if (!World.IsAlive(cameraController.PointOfInterest)) {
             return;
         }
 
-        var targetTransform = cameraController.PointOfInterest.Entity.Get<TransformComponent>();
+        var targetTransform = World.Get<TransformComponent>(cameraController.PointOfInterest.Entity);
 
         var distance = Vector3D.Distance(playerTransform.Position, targetTransform.Position);
 

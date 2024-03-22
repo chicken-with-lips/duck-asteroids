@@ -4,16 +4,14 @@ using System.Runtime.CompilerServices;
 using Arch.Core;
 using Arch.Core.Extensions;
 using Arch.System;
-using Duck;
+using Duck.AI.Components;
 using Duck.Content;
+using Duck.Graphics;
+using Duck.Graphics.Components;
+using Duck.Graphics.Mesh;
 using Duck.Physics;
 using Duck.Physics.Components;
-using Duck.Renderer;
-using Duck.Renderer.Components;
-using Duck.Renderer.Materials;
-using Duck.Renderer.Mesh;
-using Duck.Renderer.Shaders;
-using Duck.Renderer.Textures;
+using Duck.Platform;
 using Game.Components;
 using Silk.NET.Maths;
 using CommandBuffer = Arch.CommandBuffer.CommandBuffer;
@@ -37,49 +35,18 @@ public partial class AsteroidSpawnerSystem : BaseSystem<World, float>, IBuffered
 
     private float _nextSpawnTime = 0;
 
-    public AsteroidSpawnerSystem(World world, IPhysicsModule physicsModule, IContentModule contentModule)
+    public AsteroidSpawnerSystem(World world, List<StaticMesh> asteroidMeshes, IPhysicsModule physicsModule, IContentModule contentModule)
         : base(world)
     {
         _world = world;
         _physicsWorld = physicsModule.GetOrCreatePhysicsWorld(world);
-
-        var asteroidShader = contentModule.Database.Register(
-            new ShaderProgram(
-                new AssetImportData(new Uri("memory://game/asteroid.shader")),
-                contentModule.Database.GetAsset<VertexShader>(new Uri("file:///Builtin/Shaders/lit.vert")).MakeSharedReference(),
-                contentModule.Database.GetAsset<FragmentShader>(new Uri("file:///Builtin/Shaders/lit.frag")).MakeSharedReference()
-            )
-        );
-
-        var textures = new[] { "A", "B", "C", "E", "F" };
-
-        for (var i = 1; i <= 5; i++) {
-            var mesh = contentModule.Database.GetAsset<StaticMesh>(new Uri($"file:///POLYGON_ScifiSpace/Meshes/SM_Env_Astroid_0{i}.fbx"));
-
-            var material = contentModule.Database.Register(
-                new Material(
-                    new AssetImportData(new Uri($"memory://game/astroid{i}.mat"))
-                )
-            );
-
-            var texture = textures[Random.Shared.Next(0, textures.Length - 1)];
-
-            material.Shader = asteroidShader.MakeSharedReference();
-            material.DiffuseTexture = contentModule.Database.GetAsset<Texture2D>(new Uri($"file:///POLYGON_ScifiSpace/Textures/Planet/PolygonSpace_Planet_01_{texture}.png")).MakeSharedReference();
-            material.Specular = new Vector3D<float>(0.5f, 0.5f, 0.5f);
-            material.Shininess = 8.0f;
-
-            mesh.Material = material.MakeSharedReference();
-
-            _asteroidMeshes.Add(mesh);
-        }
+        _asteroidMeshes = asteroidMeshes;
     }
 
     [Query]
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Run()
     {
-        return;
         var planets = new List<Entity>();
         _world.GetEntities(new QueryDescription().WithAll<PlanetTag>(), planets);
 
@@ -99,8 +66,11 @@ public partial class AsteroidSpawnerSystem : BaseSystem<World, float>, IBuffered
         var asteroid = CreateAsteroid(_world, Vector3D<float>.Zero);
         var placed = false;
 
-        ref var transformComponent = ref asteroid.Get<TransformComponent>();
+        ref var transformComponent = ref World.Get<TransformComponent>(asteroid);
         transformComponent.Scale = Vector3D<float>.One;
+        
+        ref var massComponent = ref World.Get<MassComponent>(asteroid);
+        massComponent.ForceMultiplier = 10000f;
 
         for (var placementIteration = 0; placementIteration < 100; placementIteration++) {
             var radius = minRadius + ((maxRadius - minRadius) * Random.Shared.NextSingle());
@@ -108,7 +78,7 @@ public partial class AsteroidSpawnerSystem : BaseSystem<World, float>, IBuffered
             var position = new Vector3D<float>(radius * MathF.Cos(theta), 0, radius * MathF.Sin(theta));
 
             var placementWithBuffer = new BoundingSphereComponent() {
-                Radius = asteroid.Get<BoundingSphereComponent>().Radius * 3
+                Radius = World.Get<BoundingSphereComponent>(asteroid).Radius * 3
             };
 
             if (!_physicsWorld.Overlaps(placementWithBuffer, position, transformComponent.Rotation)) {
@@ -121,8 +91,8 @@ public partial class AsteroidSpawnerSystem : BaseSystem<World, float>, IBuffered
         if (!placed) {
             _world.Destroy(asteroid);
         } else {
-            asteroid.Get<RigidBodyComponent>().AddForce(
-                Vector3D.Normalize(planets[0].Get<TransformComponent>().Position - asteroid.Get<TransformComponent>().Position) * SpawnForceMultiplier,
+            World.Get<RigidBodyComponent>(asteroid).AddForce(
+                Vector3D.Normalize(World.Get<TransformComponent>(planets[0]).Position - World.Get<TransformComponent>(asteroid).Position) * massComponent.ForceMultiplier,
                 RigidBodyComponent.ForceMode.VelocityChange
             );
         }
@@ -130,28 +100,31 @@ public partial class AsteroidSpawnerSystem : BaseSystem<World, float>, IBuffered
 
     private Entity CreateAsteroid(World world, in Vector3D<float> position)
     {
-        var entity = world.Create<TransformComponent, BoundingSphereComponent, RigidBodyComponent, StaticMeshComponent>();
-        entity.Add<PawnTag>();
-        entity.Add<EnemyTag>();
-
-        ref var rigidBody = ref entity.Get<RigidBodyComponent>();
-        rigidBody.Type = RigidBodyComponent.BodyType.Dynamic;
-        rigidBody.Mass = 2000;
-        rigidBody.AngularDamping = 1f;
-        rigidBody.IsGravityEnabled = false;
-        rigidBody.AxisLock = RigidBodyComponent.Lock.LinearY;
-
-        ref var boundingSphereComponent = ref entity.Get<BoundingSphereComponent>();
-        boundingSphereComponent.Radius = 375f;
-
-        ref var meshComponent = ref entity.Get<StaticMeshComponent>();
-        meshComponent.Mesh = _asteroidMeshes[Random.Shared.Next(0, _asteroidMeshes.Count - 1)].MakeSharedReference();
-
-        ref var transform = ref entity.Get<TransformComponent>();
-        transform.Position = position;
-        transform.Rotation = Quaternion<float>.Identity;
-        transform.Scale = new Vector3D<float>(2f, 2f, 2f);
-
-        return entity;
+        return world.Create(
+            new TransformComponent {
+                Position = position,
+                Rotation = Quaternion<float>.Identity,
+                Scale = new Vector3D<float>(2f, 2f, 2f),
+            },
+            new BoundingSphereComponent {
+                Radius = 375f,
+            },
+            new RigidBodyComponent {
+                Type = RigidBodyComponent.BodyType.Dynamic,
+                AngularDamping = 1f,
+                IsGravityEnabled = false,
+                AxisLock = RigidBodyComponent.Lock.LinearY,
+                MaxLinearVelocity = 800f,
+            },
+            new MassComponent {
+                Value = 1,
+                ForceMultiplier = 10000f,
+            },
+            new StaticMeshComponent {
+                Mesh = _asteroidMeshes[Random.Shared.Next(0, _asteroidMeshes.Count - 1)].MakeSharedReference(),
+            },
+            new PawnTag(),
+            new EnemyTag()
+        );
     }
 }

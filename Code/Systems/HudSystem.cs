@@ -6,6 +6,7 @@ using Arch.Core;
 using Arch.Core.Extensions;
 using Arch.System;
 using Duck.Content;
+using Duck.Graphics;
 using Duck.Ui;
 using Duck.Ui.Elements;
 using Game.Components;
@@ -14,16 +15,18 @@ namespace Game.Systems;
 
 public partial class HudSystem : BaseSystem<World, float>
 {
-    private readonly IUiModule _uiModule;
+    private readonly IScene _scene;
+    private readonly IUIModule _uiModule;
     private readonly IContentModule _contentModule;
     private readonly QueryDescription _planetQueryDescription;
     private readonly QueryDescription _enemyQueryDescription;
 
     private readonly List<Entity> _planets = new(100);
 
-    public HudSystem(World world, IUiModule uiModule, IContentModule contentModule)
+    public HudSystem(World world, IScene scene, IUIModule uiModule, IContentModule contentModule)
         : base(world)
     {
+        _scene = scene;
         _uiModule = uiModule;
         _contentModule = contentModule;
 
@@ -38,7 +41,7 @@ public partial class HudSystem : BaseSystem<World, float>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public void Run(in HudComponent hud)
     {
-        var c = _uiModule.Context;
+        var c = _uiModule.GetContextForScene(_scene);
 
         _planets.Clear();
         World.GetEntities(_planetQueryDescription, _planets);
@@ -46,26 +49,24 @@ public partial class HudSystem : BaseSystem<World, float>
         var health = 0;
 
         if (_planets.Count > 0) {
-            health = _planets[0].Get<HealthComponent>().Value;
+            health = World.Get<HealthComponent>(_planets[0]).Value;
         }
 
         c.New(
             RootProps.Default with {
                 Font = _contentModule.Database.GetAsset<Font>(new Uri("file:///Builtin/Fonts/Manrope/Medium.arfont")).MakeSharedReference(),
                 Box = Box.Default with {
-                    Padding = BoxArea.All(2)
+                    Margin = BoxArea.All(2)
                 }
             },
             c.HorizontalContainer(
-                HorizontalContainerProps.Default with {
-                    HorizontalAlignment = HorizontalAlign.Left, 
-                },
+                HorizontalContainerProps.Default,
                 c.Panel(
                     PanelProps.Default with {
                         BackgroundColor = Color.DarkGray,
                         Box = Box.Default with {
-                            ContentWidth = 12,
-                            ContentHeight = 6,
+                            ContentWidth = 7,
+                            ContentHeight = 2,
                             Padding = BoxArea.All(2),
                         },
                     },
@@ -78,8 +79,8 @@ public partial class HudSystem : BaseSystem<World, float>
                     PanelProps.Default with {
                         BackgroundColor = Color.DarkGray,
                         Box = Box.Default with {
-                            ContentWidth = 12,
-                            ContentHeight = 6,
+                            ContentWidth = 7,
+                            ContentHeight = 2,
                             Padding = BoxArea.All(2),
                         },
                     },

@@ -8,34 +8,23 @@
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
-      <OutputPath>..\Binaries</OutputPath>
+        <OutputPath>..\Binaries</OutputPath>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
-      <OutputPath>..\Binaries</OutputPath>
+        <OutputPath>..\Binaries</OutputPath>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\..\..\Arch\Arch.Extended\Arch.System\Arch.System.csproj" />
-      <ProjectReference Include="..\..\..\Arch\Arch\src\Arch\Arch.csproj" />
-      <ProjectReference Include="..\..\Duck\Source\Engine\Animation\Animation.csproj" />
-      <ProjectReference Include="..\..\duck\Source\Engine\Content\Content.csproj" Private="false" />
-      <ProjectReference Include="..\..\duck\Source\Engine\Core\Core.csproj" Private="false" />
-      <ProjectReference Include="..\..\duck\Source\Engine\CoreInterfaces\CoreInterfaces.csproj" Private="false" />
-      <ProjectReference Include="..\..\duck\Source\Engine\GameFramework\GameFramework.csproj" Private="false" />
-      <ProjectReference Include="..\..\Duck\Source\Engine\Input\Input.csproj" Private="false" />
-      <ProjectReference Include="..\..\duck\Source\Engine\Physics\Physics.csproj" Private="false" />
-      <ProjectReference Include="..\..\Duck\Source\Engine\Renderer\Renderer.csproj" Private="false" />
-      <ProjectReference Include="..\..\Duck\Source\Engine\ServiceBusInterfaces\ServiceBusInterfaces.csproj" Private="false" />
-      <ProjectReference Include="..\..\Duck\Source\Engine\UI\UI.csproj" Private="false" />
-      <ProjectReference Include="..\..\physx\PhysX.Net\PhysX.Net.csproj" Private="false" />
+        <ProjectReference Include="..\..\..\Arch\Arch.Extended\Arch.System\Arch.System.csproj" Private="false"/>
+        <ProjectReference Include="..\..\..\Arch\Arch\src\Arch\Arch.csproj" Private="false"/>
+        <ProjectReference Include="..\..\Duck\Source\Engine\Engine.csproj" Private="false"/>
+        <ProjectReference Include="..\..\..\Arch\Arch.Extended\Arch.System.SourceGenerator\Arch.System.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+        <ProjectReference Include="..\..\Duck\Source\GameFramework\GameFramework.csproj" Private="false"/>
+        <ProjectReference Include="..\..\physx\PhysX.Net\PhysX.Net.csproj" Private="false"/>
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="Silk.NET.Maths" Version="2.15.0" PrivateAssets="false" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <ProjectReference Include="..\..\..\Arch\Arch.Extended\Arch.System.SourceGenerator\Arch.System.SourceGenerator.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <PackageReference Include="Silk.NET.Maths" Version="2.17.1"/>
     </ItemGroup>
 </Project>

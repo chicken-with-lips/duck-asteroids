@@ -1,5 +1,5 @@
-﻿using Duck.Renderer;
-using Duck.Renderer.Components;
+﻿using Duck.Graphics;
+using Duck.Graphics.Components;
 using Game.Components;
 
 namespace Game.Scenes;

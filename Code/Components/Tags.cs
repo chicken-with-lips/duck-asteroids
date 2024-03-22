@@ -26,3 +26,8 @@ public partial struct ProjectileTag
 public partial struct EnemyTag
 {
 }
+
+[AutoSerializable]
+public partial struct FighterTag
+{
+}

@@ -1,11 +1,11 @@
 ﻿using System;
 using Arch.Core;
-using Arch.Core.Extensions;
+using Duck.AI.Components;
 using Duck.Content;
+using Duck.Graphics;
+using Duck.Graphics.Components;
+using Duck.Graphics.Mesh;
 using Duck.Physics.Components;
-using Duck.Renderer;
-using Duck.Renderer.Components;
-using Duck.Renderer.Mesh;
 using Game.Components;
 using Silk.NET.Maths;
 using MathF = Duck.Math.MathF;
@@ -17,9 +17,10 @@ public class CreateRoundSceneSystem
     private readonly IContentModule _contentModule;
 
     private StaticMesh? _planetMesh;
-    private IAsset<StaticMesh>? _bulletMesh;
-    private IAsset<StaticMesh>? _arrowMesh;
-    private IAsset<StaticMesh>? _spaceshipMesh;
+    private IAsset<StaticMesh> _bulletMesh;
+    private IAsset<StaticMesh> _arrowMesh;
+    private IAsset<StaticMesh> _spaceshipMesh;
+    private IAsset<StaticMesh> _enemyShipMesh;
 
     public CreateRoundSceneSystem(IContentModule contentModule)
     {
@@ -29,7 +30,7 @@ public class CreateRoundSceneSystem
     public void Run(IScene scene)
     {
         LoadContent();
-        CreateHud(scene.World);
+        // CreateHud(scene.World);
         InitializeRound(scene.World);
 
         scene.IsActive = true;
@@ -41,13 +42,47 @@ public class CreateRoundSceneSystem
         _arrowMesh = _contentModule.Database.GetAsset<StaticMesh>(new Uri("memory://game/arrow.mesh"));
         _planetMesh = _contentModule.Database.GetAsset<StaticMesh>(new Uri("file:///POLYGON_ScifiSpace/Meshes/SM_Env_Planet_01.fbx"));
         _bulletMesh = _contentModule.Database.GetAsset<StaticMesh>(new Uri("file:///POLYGON_ScifiSpace/Meshes/FX_Meshes/SM_SphereGeo.fbx"));
+        _enemyShipMesh = _contentModule.Database.GetAsset<StaticMesh>(new Uri("file:///POLYGON_ScifiSpace/Meshes/SM_Ship_Fighter_05.fbx"));
     }
 
     private void InitializeRound(World world)
     {
         var planet = CreatePlanet(world);
-        CreatePlayer(world, CreateCamera(world, planet));
+        var player = CreatePlayer(world, CreateCamera(world, planet));
         CreateDirectionalLight(world);
+
+        world.Create(
+            new TransformComponent {
+                Position = new Vector3D<float>(5000, 0, -3500f),
+                Rotation = Quaternion<float>.Identity,
+                Scale = new Vector3D<float>(0.5f, 0.5f, 0.5f),
+            },
+            new RigidBodyComponent {
+                Type = RigidBodyComponent.BodyType.Dynamic,
+                AngularDamping = 0.5f,
+                LinearDamping = 0.5f,
+                AxisLock = RigidBodyComponent.Lock.LinearY | RigidBodyComponent.Lock.AngularZ | RigidBodyComponent.Lock.AngularX,
+                IsGravityEnabled = false,
+            },
+            new MassComponent {
+                Value = 1,
+                ForceMultiplier = 1000f,
+            },
+            new BoundingBoxComponent {
+                Box = new Box3D<float>(-150f, -150f, -175f, 150f, 150f, 175f),
+            },
+            new StaticMeshComponent {
+                Mesh = _enemyShipMesh.MakeSharedReference(),
+            },
+            new AgentComponent(),
+            new AgentPursuitBehaviourComponent(),
+            new AgentTargetComponent(),
+            new AgentTargetEntityComponent {
+                Value = world.Reference(player),
+            },
+            new EnemyTag(),
+            new FighterTag()
+        );
     }
 
     private void CreateHud(World world)
@@ -67,8 +102,8 @@ public class CreateRoundSceneSystem
                 IsActive = true,
             },
             new CameraControllerComponent {
-                PointOfInterest = target.Reference(),
-                Target = target.Reference(),
+                PointOfInterest = world.Reference(target),
+                Target = world.Reference(target),
             },
             new TransformComponent {
                 Scale = Vector3D<float>.One,
@@ -87,7 +122,9 @@ public class CreateRoundSceneSystem
         return world.Create(
             new RigidBodyComponent() {
                 Type = RigidBodyComponent.BodyType.Kinematic,
-                Mass = 50000f,
+            },
+            new MassComponent {
+                Value = 50000f,
             },
             new BoundingSphereComponent {
                 Radius = 23000f,
@@ -106,7 +143,7 @@ public class CreateRoundSceneSystem
         );
     }
 
-    private void CreatePlayer(World world, Entity camera)
+    private Entity CreatePlayer(World world, Entity camera)
     {
         var player = world.Create(
             new TransformComponent {
@@ -116,15 +153,18 @@ public class CreateRoundSceneSystem
             },
             new PlayerControllerComponent {
                 ProjectileAsset = _bulletMesh?.MakeSharedReference(),
-                CameraEntity = camera.Reference(),
+                CameraEntity = world.Reference(camera),
             },
             new RigidBodyComponent {
-                Mass = 100000,
                 Type = RigidBodyComponent.BodyType.Dynamic,
                 // AngularDamping = 1f,
-                AngularDamping = 0.05f,
+                AngularDamping = 0.5f,
+                LinearDamping = 0.5f,
                 AxisLock = RigidBodyComponent.Lock.LinearY | RigidBodyComponent.Lock.AngularZ | RigidBodyComponent.Lock.AngularX,
                 IsGravityEnabled = false,
+            },
+            new MassComponent {
+                Value = 1,
             },
             new BoundingBoxComponent {
                 Box = new Box3D<float>(-150f, -150f, -175f, 150f, 150f, 175f),
@@ -149,13 +189,15 @@ public class CreateRoundSceneSystem
                 Mesh = _arrowMesh?.MakeSharedReference(),
             },
             new ObjectivePointerComponent {
-                Player = player.Reference(),
-                CameraController = camera.Reference(),
+                Player = world.Reference(player),
+                CameraController = world.Reference(camera),
             }
         );
 
-        ref var cmp = ref camera.Get<CameraControllerComponent>();
-        cmp.Player = player.Reference();
+        ref var cmp = ref world.Get<CameraControllerComponent>(camera);
+        cmp.Player = world.Reference(player);
+
+        return player;
     }
 
     private void CreateDirectionalLight(World world)
